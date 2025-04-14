@@ -1,0 +1,532 @@
+
+import streamlit as st
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from datetime import datetime
+
+# Set style and color palette
+plt.style.use('seaborn-v0_8')
+sns.set_style("whitegrid")
+plt.rcParams['figure.figsize'] = [12, 8]
+plt.rcParams['font.size'] = 12
+plt.rcParams['axes.labelsize'] = 14
+plt.rcParams['axes.titlesize'] = 16
+plt.rcParams['xtick.labelsize'] = 12
+plt.rcParams['ytick.labelsize'] = 12
+plt.rcParams['axes.grid'] = True
+plt.rcParams['grid.alpha'] = 0.3
+plt.rcParams['figure.dpi'] = 100
+
+# Custom color palette
+custom_palette = sns.color_palette("husl", 8)
+
+# Set page configuration
+st.set_page_config(
+    page_title="Electric Vehicle Analytics Dashboard",
+    page_icon="🚗",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Custom styling
+st.markdown("""
+    <style>
+    /* Main container styling */
+    .main {
+        padding: 2rem;
+        color: #1a202c;
+    }
+    
+    /* Metric card styling */
+    .stMetric {
+        background-color: #ffffff;
+        padding: 1.5rem;
+        border-radius: 0.8rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e2e8f0;
+    }
+    .stMetric:hover {
+        transform: translateY(-2px);
+        transition: all 0.3s ease;
+    }
+    .stMetric label {
+        color: #4a5568 !important;
+        font-size: 1rem !important;
+        font-weight: 500 !important;
+    }
+    .stMetric .css-1wivap2 {
+        color: #2d3748 !important;
+        font-size: 1.8rem !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Sidebar styling */
+    .stSidebar {
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+    }
+    .stSidebar [data-testid="stSidebarNav"] {
+        padding-top: 2rem;
+    }
+    
+    /* Headers and text styling */
+    h1 {
+        color: #1a202c !important;
+        font-weight: 700 !important;
+    }
+    h2 {
+        color: #2d3748 !important;
+        font-weight: 600 !important;
+    }
+    h3 {
+        color: #4a5568 !important;
+        font-weight: 600 !important;
+    }
+    p {
+        color: #4a5568 !important;
+    }
+    
+    /* Expander styling */
+    div[data-testid="stExpander"] {
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        background-color: #ffffff;
+    }
+    
+    /* Filter section styling */
+    .stSlider {
+        padding: 1rem 0;
+    }
+    .stSlider label {
+        color: #4a5568 !important;
+    }
+    
+    /* Section dividers */
+    .section-divider {
+        margin: 2rem 0;
+        border-top: 1px solid #e2e8f0;
+    }
+    
+    /* Chart containers */
+    div[data-testid="stBlock"] {
+        background-color: #ffffff;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 1rem;
+    }
+    
+    /* Button styling */
+    .stButton button {
+        background-color: #3182ce;
+        color: #ffffff;
+        border-radius: 0.5rem;
+    }
+    .stButton button:hover {
+        background-color: #2c5282;
+    }
+    
+    /* Multiselect styling */
+    .stMultiSelect {
+        color: #4a5568;
+    }
+    
+    /* Caption text */
+    .caption-text {
+        color: #718096 !important;
+        font-size: 0.875rem !important;
+    }
+    
+    /* Alert/Info boxes */
+    .stAlert {
+        background-color: #ebf8ff;
+        border: 1px solid #bee3f8;
+        color: #2c5282;
+        border-radius: 0.5rem;
+        padding: 1rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Define helper functions
+def filter_summary(years, types, price_range, range_values):
+    st.markdown(f"""
+    <div style='background-color: #f7fafc; padding: 1.2rem; border-radius: 0.8rem; border: 1px solid #e2e8f0;'>
+        <h4 style='margin: 0 0 0.8rem 0; color: #2d3748; font-weight: 600;'>Active Filters</h4>
+        <ul style='margin: 0; padding-left: 1.2rem; color: #4a5568; font-size: 0.95rem;'>
+            <li style='margin-bottom: 0.4rem;'>Years: {years[0]}-{years[1]}</li>
+            <li style='margin-bottom: 0.4rem;'>Types: {len(types)} selected</li>
+            <li style='margin-bottom: 0.4rem;'>Price: ${price_range[0]:,.0f}-${price_range[1]:,.0f}</li>
+            <li>Range: {range_values[0]}-{range_values[1]} miles</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
+
+def section_header(title, description):
+    st.markdown(f"""
+    <div style='margin-bottom: 1.5rem; background-color: #ffffff; padding: 1.2rem; border-radius: 0.8rem; border: 1px solid #e2e8f0;'>
+        <h3 style='color: #2d3748; margin-bottom: 0.5rem; font-weight: 600;'>{title}</h3>
+        <p style='color: #4a5568; font-size: 0.95rem; margin: 0; line-height: 1.5;'>{description}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+def footer():
+    st.markdown(f"""
+    <div style='text-align: center; padding: 2rem; background-color: #f7fafc; border-radius: 0.8rem; border: 1px solid #e2e8f0; margin-top: 3rem;'>
+        <h4 style='color: #2d3748; margin-bottom: 0.8rem; font-weight: 600;'>Electric Vehicle Analytics Dashboard</h4>
+        <p style='color: #4a5568; font-size: 0.95rem; margin-bottom: 0.4rem;'>Last Updated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
+        <p style='color: #718096; font-size: 0.875rem;'>Data refreshed automatically on load</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Load data
+@st.cache_data
+def load_data():
+    df = pd.read_csv("project.csv")
+    df.dropna(inplace=True)
+    df.drop(columns=["State"], inplace=True)
+    df.drop_duplicates(inplace=True)
+    return df
+
+# Load the data
+df = load_data()
+
+# Sidebar with enhanced styling
+with st.sidebar:
+    st.title("📊 Dashboard Controls")
+    st.markdown("---")
+
+    # Update the dashboard description box styling
+    st.markdown("""
+    <div style='background-color: #ebf8ff; padding: 1.5rem; border-radius: 0.8rem; margin-bottom: 1.5rem; border: 1px solid #bee3f8;'>
+        <h4 style='margin: 0; color: #2c5282; font-weight: 600;'>About this Dashboard</h4>
+        <p style='margin-top: 0.8rem; color: #4a5568; font-size: 0.95rem; line-height: 1.5;'>
+            Explore electric vehicle trends, distributions, and patterns using interactive filters below.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Filters in expandable sections
+    with st.expander("🔍 Time Period Filter", expanded=True):
+        # Year range selector with min/max display
+        min_year = int(df['Model Year'].min())
+        max_year = int(df['Model Year'].max())
+        selected_years = st.slider(
+            "Select Year Range",
+            min_value=min_year,
+            max_value=max_year,
+            value=(min_year, max_year)
+        )
+        st.caption(f"Selected period: {selected_years[0]} - {selected_years[1]}")
+
+    with st.expander("🚗 Vehicle Type Filter", expanded=True):
+        # Vehicle type filter with select all/none options
+        all_types = df['Electric Vehicle Type'].unique()
+        select_all = st.checkbox("Select All Types", value=True)
+        
+        if select_all:
+            vehicle_types = st.multiselect(
+                "Choose Vehicle Types",
+                options=all_types,
+                default=all_types
+            )
+        else:
+            vehicle_types = st.multiselect(
+                "Choose Vehicle Types",
+                options=all_types
+            )
+
+    with st.expander("📈 Additional Filters", expanded=False):
+        # Price range filter
+        price_range = st.slider(
+            "Price Range (MSRP)",
+            min_value=float(df['Base MSRP'].min()),
+            max_value=float(df['Base MSRP'].max()),
+            value=(float(df['Base MSRP'].min()), float(df['Base MSRP'].max())),
+            format="$%f"
+        )
+        
+        # Range filter
+        range_values = st.slider(
+            "Electric Range (miles)",
+            min_value=int(df['Electric Range'].min()),
+            max_value=int(df['Electric Range'].max()),
+            value=(int(df['Electric Range'].min()), int(df['Electric Range'].max()))
+        )
+
+    # Update the filter summary call in the sidebar
+    filter_summary(selected_years, vehicle_types, price_range, range_values)
+    
+    # Add separator
+    st.markdown("---")
+    
+    # About Me Section
+    st.markdown("""
+    <div style='background-color: #f8fafc; padding: 1.5rem; border-radius: 0.8rem; margin-top: 2rem; border: 1px solid #e2e8f0;'>
+        <h4 style='margin: 0; color: #2d3748; font-weight: 600; margin-bottom: 1rem;'>👨‍🎓 About Me</h4>
+        <div style='color: #4a5568; font-size: 0.95rem; line-height: 1.5;'>
+            <p style='margin: 0.5rem 0;'><strong>Name:</strong>AMAN KUMAR</p>
+            <p style='margin: 0.5rem 0;'><strong>Reg. Number:</strong>12318896</p>
+            <p style='margin: 0.5rem 0;'><strong>Section:</strong>K23GP</p>
+            <p style='margin: 0.5rem 0;'><strong>Course:</strong>BTECH-CSE</p>
+            <div style='margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;'>
+                <p style='margin: 0; font-size: 0.875rem; color: #718096;'>
+                    Academic Project - Electric Vehicle Analytics Dashboard
+                </p>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Apply filters to the dataframe
+filtered_df = df[
+    (df['Model Year'] >= selected_years[0]) & 
+    (df['Model Year'] <= selected_years[1]) &
+    (df['Electric Vehicle Type'].isin(vehicle_types)) &
+    (df['Base MSRP'] >= price_range[0]) &
+    (df['Base MSRP'] <= price_range[1]) &
+    (df['Electric Range'] >= range_values[0]) &
+    (df['Electric Range'] <= range_values[1])
+]
+
+# Main content
+st.title("🚗 Electric Vehicle Analytics Dashboard")
+st.markdown("""
+<div style='background-color: #f8fafc; padding: 1rem; border-radius: 0.5rem; margin-bottom: 2rem;'>
+    <p style='margin: 0; color: #4a5568; font-size: 1.1rem;'>
+        Comprehensive analysis of electric vehicle trends and patterns across different dimensions.
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+# Key Metrics with enhanced styling
+st.markdown("""
+<div style='margin-bottom: 2rem;'>
+    <h3 style='color: #2d3748; margin-bottom: 1rem;'>Key Metrics Overview</h3>
+</div>
+""", unsafe_allow_html=True)
+
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.metric(
+        "Total Vehicles",
+        f"{len(filtered_df):,}"
+    )
+with col2:
+    st.metric(
+        "Average Range",
+        f"{filtered_df['Electric Range'].mean():.0f} miles"
+    )
+with col3:
+    st.metric(
+        "Average MSRP",
+        f"${filtered_df['Base MSRP'].mean():,.0f}"
+    )
+with col4:
+    st.metric(
+        "Unique Models",
+        f"{filtered_df['Model'].nunique():,}"
+    )
+
+# Continue with the existing visualization code, but add section headers with enhanced styling
+st.markdown("---")
+
+# Add section headers with enhanced styling before each row
+def section_header(title, description):
+    st.markdown(f"""
+    <div style='margin-bottom: 1.5rem; background-color: #ffffff; padding: 1.2rem; border-radius: 0.8rem; border: 1px solid #e2e8f0;'>
+        <h3 style='color: #2d3748; margin-bottom: 0.5rem; font-weight: 600;'>{title}</h3>
+        <p style='color: #4a5568; font-size: 0.95rem; margin: 0; line-height: 1.5;'>{description}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# First Row
+section_header(
+    "Growth Trends & Distribution",
+    "Analysis of EV adoption over time and distribution of vehicle types"
+)
+row1_col1, row1_col2 = st.columns(2)
+
+# Left Column - Growth and Trends
+with row1_col1:
+    st.subheader("Growth and Trends")
+    
+    # EV Growth Over Time
+    ev_growth = filtered_df.groupby("Model Year").size().reset_index(name="Number of EVs")
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.lineplot(data=ev_growth, x="Model Year", y="Number of EVs", 
+                 marker="o", linewidth=2.5, color='#1f77b4')
+    plt.title("Growth of Electric Vehicles Over Time")
+    plt.grid(True, alpha=0.3)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    st.pyplot(fig)
+
+# Right Column - Distribution
+with row1_col2:
+    st.subheader("Distribution and Composition")
+    
+    # Vehicle Type Distribution
+    type_counts = filtered_df['Electric Vehicle Type'].value_counts()
+    fig, ax = plt.subplots(figsize=(10, 6))
+    colors = sns.color_palette("Set2", len(type_counts))
+    plt.pie(type_counts, labels=type_counts.index, autopct='%1.1f%%',
+            colors=colors, wedgeprops={'edgecolor': 'white', 'linewidth': 2})
+    plt.title("Distribution of Electric Vehicle Types")
+    plt.axis('equal')
+    plt.tight_layout()
+    st.pyplot(fig)
+
+st.markdown("---")
+
+# Second Row - Models and Range
+row2_col1, row2_col2 = st.columns(2)
+
+with row2_col1:
+    st.subheader("Top EV Models")
+    # Top Models
+    top_models = filtered_df['Model'].value_counts().head(10)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(x=top_models.values, y=top_models.index, palette="magma")
+    plt.title("Top 10 EV Models")
+    for i, v in enumerate(top_models.values):
+        ax.text(v + 0.1, i, str(v), color='black', fontweight='bold')
+    plt.tight_layout()
+    st.pyplot(fig)
+
+with row2_col2:
+    st.subheader("Range Analysis")
+    # Average Range Over Time
+    avg_range = filtered_df.groupby("Model Year")["Electric Range"].mean().reset_index()
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.lineplot(data=avg_range, x="Model Year", y="Electric Range", 
+                 marker="o", linewidth=2.5, color='#2ca02c')
+    plt.title("Average Electric Range Over Time")
+    plt.grid(True, alpha=0.3)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    st.pyplot(fig)
+
+st.markdown("---")
+
+# Third Row - Price Analysis and Cities
+row3_col1, row3_col2 = st.columns(2)
+
+with row3_col1:
+    st.subheader("Price Analysis")
+    # Average MSRP Over Time
+    avg_msrp = filtered_df.groupby("Model Year")["Base MSRP"].mean().reset_index()
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.lineplot(data=avg_msrp, x="Model Year", y="Base MSRP", 
+                marker="o", linewidth=2.5, color='#ff7f0e')
+    plt.title("Average MSRP Over Time")
+    plt.grid(True, alpha=0.3)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    st.pyplot(fig)
+
+with row3_col2:
+    st.subheader("Geographic Distribution")
+    # Top Cities
+    top_cities = filtered_df['City'].value_counts().head(10)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(x=top_cities.values, y=top_cities.index, palette="coolwarm")
+    plt.title("Top 10 Cities by EV Count")
+    for i, v in enumerate(top_cities.values):
+        ax.text(v + 0.1, i, str(v), color='black', fontweight='bold')
+    plt.tight_layout()
+    st.pyplot(fig)
+
+# After the third row (Price Analysis and Cities), add new rows:
+
+st.markdown("---")
+
+# Fourth Row - Growth Rate and Manufacturers
+row4_col1, row4_col2 = st.columns(2)
+
+with row4_col1:
+    st.subheader("Year-over-Year Growth Rate")
+    # Growth Rate Analysis
+    ev_growth["Yearly Growth Rate (%)"] = ev_growth["Number of EVs"].pct_change() * 100
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(data=ev_growth[1:], x="Model Year", y="Yearly Growth Rate (%)", 
+                palette=custom_palette)
+    plt.title("Year-over-Year EV Growth Rate")
+    plt.xticks(rotation=45)
+    for i, v in enumerate(ev_growth[1:]["Yearly Growth Rate (%)"]):
+        ax.text(i, v + 0.1, f"{v:.1f}%", ha='center', color='black', fontweight='bold')
+    plt.tight_layout()
+    st.pyplot(fig)
+
+with row4_col2:
+    st.subheader("Top Manufacturers")
+    # Top Manufacturers
+    top_makes = filtered_df['Make'].value_counts().head(10)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(x=top_makes.values, y=top_makes.index, palette=custom_palette)
+    plt.title("Top 10 EV Manufacturers")
+    for i, v in enumerate(top_makes.values):
+        ax.text(v + 0.1, i, str(v), color='black', fontweight='bold')
+    plt.tight_layout()
+    st.pyplot(fig)
+
+st.markdown("---")
+
+# Fifth Row - Models by Type and Correlation
+row5_col1, row5_col2 = st.columns(2)
+
+with row5_col1:
+    st.subheader("Top Models by Vehicle Type")
+    # Models by Type
+    top_models_by_type = filtered_df.groupby(['Electric Vehicle Type', 'Model']).size().reset_index(name='Count')
+    top_models_by_type = top_models_by_type.sort_values('Count', ascending=False).groupby('Electric Vehicle Type').head(5)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(data=top_models_by_type, y='Model', x='Count', 
+               hue='Electric Vehicle Type', palette=custom_palette)
+    plt.title("Top 5 EV Models by Type")
+    plt.legend(title='Vehicle Type', title_fontsize=12, fontsize=10)
+    plt.tight_layout()
+    st.pyplot(fig)
+
+with row5_col2:
+    st.subheader("Correlation Analysis")
+    # Correlation Heatmap
+    numerical_cols = ['Model Year', 'Electric Range', 'Base MSRP']
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.heatmap(filtered_df[numerical_cols].corr(), annot=True, 
+               cmap='coolwarm', fmt=".2f", linewidths=0.5, square=True)
+    plt.title("Correlation Heatmap")
+    plt.tight_layout()
+    st.pyplot(fig)
+
+st.markdown("---")
+
+# Sixth Row - Average EVs per City and MSRP Distribution
+row6_col1, row6_col2 = st.columns(2)
+
+with row6_col1:
+    st.subheader("City-wise EV Distribution")
+    # Average EVs per City Over Time
+    avg_city_count = filtered_df.groupby(['Model Year', 'City']).size().groupby('Model Year').mean().reset_index(name='Average EVs per City')
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.lineplot(data=avg_city_count, x="Model Year", y="Average EVs per City", 
+                marker="o", color=custom_palette[3], linewidth=2.5)
+    plt.title("Average EVs per City Over Time")
+    plt.grid(True, alpha=0.3)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    st.pyplot(fig)
+
+with row6_col2:
+    st.subheader("MSRP Distribution")
+    # MSRP Distribution by Vehicle Type
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.boxplot(data=filtered_df, x='Electric Vehicle Type', y='Base MSRP', 
+                palette=custom_palette)
+    plt.title("MSRP Distribution by Vehicle Type")
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    st.pyplot(fig)
