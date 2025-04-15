@@ -1,6 +1,6 @@
 # EV-python-project
 Just completed an EDA project on electric vehicles using Python! 📊 Explored trends, cleaned real-world data, and visualized key insights.
-# 1. Importing Required Libraries
+# 1. Importing Required Librarie
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
