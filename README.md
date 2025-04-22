@@ -33,7 +33,7 @@ df.drop_duplicates(inplace=True)
 # 4. EV Growth Over Time
 ev_growth = df.groupby("Model Year").size().reset_index(name="Number of EVs")
 plt.figure(figsize=(14, 7))
-sns.lineplot(data=ev_growth, x="Model Year", y="Number of EVs", 
+sns.lineplot(data=ev_growth, x="Model Year", y="Number of EVs",
              marker="o", linewidth=2.5, color=custom_palette[0])
 plt.title("Growth of Electric Vehicles Over Time", fontsize=18, pad=20)
 plt.xlabel("Model Year", fontsize=14)
