@@ -4,7 +4,7 @@ Just completed an EDA project on electric vehicles using Python! 📊 Explored t
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
+import seaborn as sns//
 
 # Display settings
 plt.style.use('seaborn-v0_8')  # Using the correct style name
